@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Run pre-commit-conda
         uses: quantco/pre-commit-conda@v1
   env:
@@ -21,13 +21,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Set up Conda env
-        uses: mamba-org/setup-micromamba@b09ef9b599704322748535812ca03efb2625677b # v2.0.5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@ad1da6449d9e506fd127fd67ab2d054a769f6a94 # v0.11.2
         with:
-          environment-file: environment.yml
-          environment-name: test-env
-      - name: Check 'insert-license' executable is available
+          run-install: false
+      - name: Check that the environment is installable
         run: |
-          insert-license --help
-        shell: bash -l {0}
+          workspace="$RUNNER_TEMP/check-env"
+          pixi init --channel conda-forge --platform linux-64 "$workspace"
+          # `nodefaults` is a conda only marker that pixi does not understand
+          yq 'del(.channels[] | select(. == "nodefaults"))' environment.yml > "$RUNNER_TEMP/environment.yml"
+          pixi import --manifest-path "$workspace/pixi.toml" --format conda-env --environment default "$RUNNER_TEMP/environment.yml"
+          pixi install --manifest-path "$workspace/pixi.toml"
+      - name: Check 'insert-license' executable is available
+        run: pixi run --manifest-path "$RUNNER_TEMP/check-env/pixi.toml" insert-license --help
